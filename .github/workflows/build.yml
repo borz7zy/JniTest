@@ -16,6 +16,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        arch: [x86, x86_64, arm32, arm64]
+
     steps:
       - name: Fetch sources
         uses: actions/checkout@v5
@@ -36,36 +38,31 @@ jobs:
         run: brew install ninja cmake
 
       - name: Configure CMake
-        run: cmake -G"Ninja" -S ${{ github.workspace }}/src/main/cpp -B ${{ github.workspace }}/build/.cxx/${{ runner.os }} -DCMAKE_BUILD_TYPE=RelWithDebugInfo
+        run: |
+          cmake -S src/main/cpp -B build/${{ matrix.os }}/${{ matrix.arch }} \
+            -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+            ${{ matrix.os == 'macos-latest' && format('-DCMAKE_OSX_ARCHITECTURES={0}', matrix.arch == 'x86' && 'x86_64' || matrix.arch) || '' }} \
+            ${{ matrix.os == 'windows-latest' && (matrix.arch == 'x86' && '-A Win32' || matrix.arch == 'x86_64' && '-A x64' || '') || '' }}
 
       - name: Build C++ Code
-        run: cmake --build ${{ github.workspace }}/build/.cxx/${{ runner.os }} --config=RelWithDebugInfo
+        run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config=RelWithDebugInfo
 
-      - name: Package native libs (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          mkdir artifacts
-          Get-ChildItem -Path "${{ github.workspace }}/build/.cxx/${{ runner.os }}" -Recurse -Include *.dll | ForEach-Object {
-            Copy-Item $_.FullName -Destination "artifacts"
-          }
-
-      - name: Package native libs (Linux)
-        if: runner.os == 'Linux'
+      - name: Collect Native Libs
         run: |
           mkdir -p artifacts
-          find ${{ github.workspace }}/build/.cxx/${{ runner.os }} -type f -name "*.so" -exec cp {} artifacts/ \;
-
-      - name: Package native libs (macOS)
-        if: runner.os == 'macos'
-        run: |
-          mkdir -p artifacts
-          find ${{ github.workspace }}/build/.cxx/${{ runner.os }} -type f -name "*.dylib" -exec cp {} artifacts/ \;
+          OS=$(echo "${{ matrix.os }}" | sed 's/-latest//')
+          for f in $(find build/${{ matrix.os }}/${{ matrix.arch }} -type f \( -name "*.so" -o -name "*.dll" -o -name "*.dylib" \)); do
+            base=$(basename "$f")
+            ext="${base##*.}"
+            name="${base%.*}"
+            cp "$f" "artifacts/${name}_${OS}_${{ matrix.arch }}.${ext}"
+          done
+        shell: bash
 
       - name: Upload native artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: native-binaries-${{ runner.os }}
+          name: native-libs-${{ matrix.os }}-${{ matrix.arch }}
           path: artifacts/
 
   build-java:
