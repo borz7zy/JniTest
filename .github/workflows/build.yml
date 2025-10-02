@@ -19,8 +19,8 @@ jobs:
         arch: [x86, x86_64, arm32, arm64]
         exclude:
           - os: macos-latest
-            arch: x86
-          - os: macos-latest
+            arch: [x86, arm32]
+          - os: windows-latest
             arch: arm32
 
     steps:
