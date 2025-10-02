@@ -92,11 +92,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path $BUILD_DIR | Out-Null
           
           $ARCH = '${{ matrix.arch }}'
-          $ARCH_FLAG = if ($ARCH -eq 'x86') { '-A Win32' } elseif ($ARCH -eq 'x86_64') { '-A x64' } else { '' }
+          $ARCH_FLAG = if ($ARCH -eq 'x86') { '-A Win32' } elseif ($ARCH -eq 'x86_64') { '-A x64' } elseif ($ARCH -eq 'arm64') { '-A ARM64' } else { '' }
           
           cmake -S "${{ github.workspace }}\src\main\cpp" `
                 -B $BUILD_DIR `
-                -DCMAKE_BUILD_TYPE=RelWithDebugInfo `
                 $ARCH_FLAG
 
       - name: Build C++ Code
