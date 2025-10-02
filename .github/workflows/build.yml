@@ -46,6 +46,12 @@ jobs:
         if: runner.os == 'macos'
         run: brew install ninja cmake
 
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
