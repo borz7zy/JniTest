@@ -16,6 +16,8 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+version = "0.0.1" // CI_PROJECT_VERSION
+
 // === Build type ===
 val buildType: String = if (project.hasProperty("buildType")) {
     project.property("buildType").toString()

@@ -1,0 +1,114 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github-workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-native:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake build-essential
+
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ninja cmake -y
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macos'
+        run: brew install ninja cmake
+
+      - name: Configure CMake
+        run: cmake -G"Ninja" -S ${{ github.workspace }}/src/main/cpp -B ${{ github.workspace }}/build/.cxx/${{ runner.os }} -DCMAKE_BUILD_TYPE=RelWithDebugInfo
+
+      - name: Build C++ Code
+        run: cmake --build ${{ github.workspace }}/build/.cxx/${{ runner.os }} --config=RelWithDebugInfo
+
+      - name: Package native libs (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          mkdir artifacts
+          Get-ChildItem -Path "${{ github.workspace }}/build/.cxx/${{ runner.os }}" -Recurse -Include *.dll | ForEach-Object {
+            Copy-Item $_.FullName -Destination "artifacts"
+          }
+
+      - name: Package native libs (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p artifacts
+          find ${{ github.workspace }}/build/.cxx/${{ runner.os }} -type f -name "*.so" -exec cp {} artifacts/ \;
+
+      - name: Package native libs (macOS)
+        if: runner.os == 'macos'
+        run: |
+          mkdir -p artifacts
+          find ${{ github.workspace }}/build/.cxx/${{ runner.os }} -type f -name "*.dylib" -exec cp {} artifacts/ \;
+
+      - name: Upload native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-binaries-${{ runner.os }}
+          path: artifacts/
+
+  build-java:
+    runs-on: ubuntu-latest
+    needs: build-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download native artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: native-artifacts
+          merge-multiple: true
+
+      - name: Copy native libs into Java resources
+        run: |
+          mkdir -p src/main/resources/native
+          cp -r native-artifacts/* src/main/resources/native/
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build Java project
+        run: ./gradlew clean fatJar -PoffBuildLibs=true
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: build/libs/*.jar
+
+      - name: Extract version
+        id: extract_version
+        run: |
+          VERSION=$(grep -Po '[0-9\.]+(?= # CI_PROJECT_VERSION)' build.gradle.kts)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION = $VERSION"
+
+      - name: Create Draft Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ env.VERSION }}" \
+            --draft \
+            --title "v${{ env.VERSION }}" \
+            build/libs/*.jar
