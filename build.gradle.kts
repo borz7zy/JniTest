@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     kotlin("jvm") version "2.2.20"
     application
@@ -14,24 +16,39 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-val jniSourceDir = layout.projectDirectory.dir("src/main/cpp").asFile
-val jniBuildDir = layout.buildDirectory.dir("jni").get().asFile
-val javaHome = System.getProperty("java.home")
-
-application {
-    mainClass.set("org.example.NativeLibKt")
-    applicationDefaultJvmArgs = listOf(
-        "-Djava.library.path=${jniBuildDir}"
-    )
+val buildType: String = if (project.hasProperty("buildType")) {
+    project.property("buildType").toString()
+} else {
+    "debug"
 }
 
+val kotlinDebugOptions = listOf<String>()
+val kotlinReleaseOptions = listOf("-Xopt-in=kotlin.ExperimentalStdlibApi")
+
+val jniBuildType = "RelWithDebInfo"
+
+// === Directories ===
+val jniSourceDir = layout.projectDirectory.dir("src/main/cpp").asFile
+val jniBuildDir = layout.buildDirectory.dir("jni").get().asFile
+val nativeRunDir = layout.buildDirectory.dir("run/native").get().asFile
+
+// === Kotlin compilation options ===
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    compilerOptions {
+        freeCompilerArgs.set(if (buildType.lowercase() == "release") kotlinReleaseOptions else kotlinDebugOptions)
+        jvmTarget.set(JvmTarget.JVM_21)
+    }
+}
+
+// === CMake configure & build ===
 tasks.register<Exec>("cmakeConfigure") {
     workingDir(jniSourceDir)
     commandLine(
-        "cmake", "-G\"Ninja\"",
-        "-S", jniSourceDir,
-        "-B", jniBuildDir,
-        "-DCMAKE_BUILD_TYPE=Release"
+        "cmake",
+        "-G", "Ninja",
+        "-S", jniSourceDir.absolutePath,
+        "-B", jniBuildDir.absolutePath,
+        "-DCMAKE_BUILD_TYPE=$jniBuildType"
     )
 }
 
@@ -41,19 +58,27 @@ tasks.register<Exec>("cmakeBuild") {
     commandLine("cmake", "--build", ".")
 }
 
-tasks.withType<Jar> {
+// === Copy native libs for run ===
+tasks.register<Copy>("copyNativeLibs") {
     dependsOn("cmakeBuild")
+    from("${jniBuildDir}/library_exit")
+    into(nativeRunDir)
+}
+
+// === Configure run task ===
+tasks.named<JavaExec>("run") {
+    dependsOn("copyNativeLibs")
+    jvmArgs = listOf("-Djava.library.path=${nativeRunDir.absolutePath}")
+}
+
+// === JAR tasks ===
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = application.mainClass.get()
+    }
     from("${jniBuildDir}/library_exit") {
         into("native")
     }
-}
-
-tasks.named("classes") {
-    dependsOn("cmakeBuild")
-}
-
-tasks.test{
-    useJUnitPlatform()
 }
 
 tasks.register<Jar>("fatJar") {
@@ -65,10 +90,12 @@ tasks.register<Jar>("fatJar") {
     }
 
     from(sourceSets.main.get().output)
-
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
-
-    from("src/main/resources") {
+    from("${jniBuildDir}/library_exit") {
         into("native")
     }
+}
+
+application {
+    mainClass.set("org.example.NativeLibKt")
 }
