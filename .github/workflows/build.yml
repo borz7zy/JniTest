@@ -94,7 +94,7 @@ jobs:
           $ARCH = '${{ matrix.arch }}'
           $ARCH_FLAG = if ($ARCH -eq 'x86') { '-A Win32' } elseif ($ARCH -eq 'x86_64') { '-A x64' } elseif ($ARCH -eq 'arm64') { '-A ARM64' } else { '' }
           
-          cmake -S "${{ github.workspace }}\src\main\cpp" `
+          cmake -G"Ninja" -S "${{ github.workspace }}\src\main\cpp" `
                 -B $BUILD_DIR `
                 $ARCH_FLAG
 
