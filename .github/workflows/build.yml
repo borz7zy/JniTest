@@ -67,7 +67,7 @@ jobs:
 
           cmake -S "${{ github.workspace }}/src/main/cpp" \
                 -B "$BUILD_DIR" \
-                -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+                -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_SYSTEM_PROCESSOR=$SYSTEM_PROCESSOR \
                 $TOOLCHAIN
 
@@ -81,7 +81,7 @@ jobs:
 
           cmake -S "${{ github.workspace }}/src/main/cpp" \
                 -B "$BUILD_DIR" \
-                -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+                -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_OSX_ARCHITECTURES=$ARCH_FLAG
 
       - name: Configure CMake (Windows)
@@ -99,7 +99,7 @@ jobs:
                 $ARCH_FLAG
 
       - name: Build C++ Code
-        run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config RelWithDebugInfo
+        run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config Release
 
       - name: Collect Native Libs
         run: |
