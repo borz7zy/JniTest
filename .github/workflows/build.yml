@@ -42,12 +42,22 @@ jobs:
         if: runner.os == 'macos'
         run: brew install ninja cmake
 
-      - name: Configure CMake
+      - name: Configure CMake (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
-          cmake -S ${{ github.workspace }}/src/main/cpp -B ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} \
-            -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
-            ${{ matrix.os == 'macos-latest' && format('-DCMAKE_OSX_ARCHITECTURES={0}', matrix.arch == 'x86' && 'x86_64' || matrix.arch) || '' }} \
-            ${{ matrix.os == 'windows-latest' && (matrix.arch == 'x86' && '-A Win32' || matrix.arch == 'x86_64' && '-A x64' || '') || '' }}
+          cmake -S ${{ github.workspace }}/src/main/cpp \
+                -B ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} \
+                -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+                ${{ matrix.os == 'macos-latest' && format('-DCMAKE_OSX_ARCHITECTURES={0}', matrix.arch == 'x86' && 'x86_64' || matrix.arch) || '' }}
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -S ${{ github.workspace }}\src\main\cpp `
+                -B ${{ github.workspace }}\build\.cxx\${{ matrix.os }}\${{ matrix.arch }} `
+                -DCMAKE_BUILD_TYPE=RelWithDebugInfo `
+                ${{ matrix.arch == 'x86' && '-A Win32' || matrix.arch == 'x86_64' && '-A x64' || '' }}
+        shell: pwsh
 
       - name: Build C++ Code
         run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config=RelWithDebugInfo
