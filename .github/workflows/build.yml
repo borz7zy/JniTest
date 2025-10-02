@@ -149,64 +149,25 @@ jobs:
 
   collect-native:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        arch: [x86, x86_64, arm32, arm64]
+        exclude:
+          - os: macos-latest
+            arch: x86
+          - os: macos-latest
+            arch: arm32
+          - os: windows-latest
+            arch: arm32
+
     needs: build-native
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Download macOS ARM64 artifact
+      - name: Download ${{ matrix.os }} ${{ matrix.arch }} artifact
         uses: actions/download-artifact@v5
         with:
-          name: native-libs-macos-latest-arm64
-          path: native-artifacts/macos/arm64
-
-      - name: Download macOS x86_64 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-macos-latest-x86_64
-          path: native-artifacts/macos/x86_64
-
-      - name: Download Ubuntu ARM32 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-ubuntu-latest-arm32
-          path: native-artifacts/ubuntu/arm32
-
-      - name: Download Ubuntu ARM64 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-ubuntu-latest-arm64
-          path: native-artifacts/ubuntu/arm64
-
-      - name: Download Ubuntu x86 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-ubuntu-latest-x86
-          path: native-artifacts/ubuntu/x86
-
-      - name: Download Ubuntu x86_64 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-ubuntu-latest-x86_64
-          path: native-artifacts/ubuntu/x86_64
-
-      - name: Download Windows ARM64 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-windows-latest-arm64
-          path: native-artifacts/windows/arm64
-
-      - name: Download Windows x86 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-windows-latest-x86
-          path: native-artifacts/windows/x86
-
-      - name: Download Windows x86_64 artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: native-libs-windows-latest-x86_64
-          path: native-artifacts/windows/x86_64
+          name: native-libs-${{ matrix.os }}-${{ matrix.arch }}
+          path: native-artifacts/${{ matrix.os }}/${{ matrix.arch }}
 
   build-java:
     runs-on: ubuntu-latest
