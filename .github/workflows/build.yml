@@ -101,7 +101,21 @@ jobs:
       - name: Build C++ Code
         run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config Release
 
-      - name: Collect Native Libs
+      - name: Collect Native Libs (windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p artifacts
+          OS=$(echo "${{ matrix.os }}" | sed 's/-latest//')
+          for f in $(find ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }}/library_exit/Release -type f \( -name "*.so" -o -name "*.dll" -o -name "*.dylib" \)); do
+            base=$(basename "$f")
+            ext="${base##*.}"
+            name="${base%.*}"
+            cp "$f" "artifacts/${name}_${OS}_${{ matrix.arch }}.${ext}"
+          done
+        shell: bash
+
+      - name: Collect Native Libs (linux/macos)
+        if: runner.os != 'Windows'
         run: |
           mkdir -p artifacts
           OS=$(echo "${{ matrix.os }}" | sed 's/-latest//')
