@@ -73,6 +73,7 @@ tasks.named<JavaExec>("run") {
 
 // === JAR tasks ===
 tasks.jar {
+    dependsOn("cmakeBuild");
     manifest {
         attributes["Main-Class"] = application.mainClass.get()
     }
@@ -82,6 +83,7 @@ tasks.jar {
 }
 
 tasks.register<Jar>("fatJar") {
+    dependsOn("cmakeBuild")
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 

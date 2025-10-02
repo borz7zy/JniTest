@@ -1,6 +1,7 @@
 package org.example
 
 import java.io.File
+import java.nio.file.Files
 
 class NativeLibKt {
 
@@ -18,12 +19,18 @@ class NativeLibKt {
                 else -> "jnitest.so"
             }
 
-            val nativeDir = File(System.getProperty("user.dir"), "build/run/native")
-            val libFile = File(nativeDir, libName)
-            if (!libFile.exists()) {
-                throw RuntimeException("Cannot find native library $libName in $nativeDir")
+            val libFile = File(System.getProperty("user.dir"), "build/run/native/$libName")
+            if (libFile.exists()) {
+                System.load(libFile.absolutePath)
+            }else{
+                val tempDir = Files.createTempDirectory("jni_libs").toFile()
+                tempDir.deleteOnExit()
+                val tempLib = File(tempDir, libName)
+                val inputStream = NativeLibKt::class.java.getResourceAsStream("/native/$libName")
+                    ?: throw RuntimeException("Cannot find native library $libName in JAR resources")
+                inputStream.use { input -> tempLib.outputStream().use { output -> input.copyTo(output) } }
+                System.load(tempLib.absolutePath)
             }
-            System.load(libFile.absolutePath)
         }
     }
     external fun stringFromNative(): String
