@@ -101,18 +101,20 @@ jobs:
       - name: Build C++ Code
         run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config Release
 
-      - name: Collect Native Libs (windows)
+      - name: Collect Native Libs (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          mkdir -p artifacts
-          OS=$(echo "${{ matrix.os }}" | sed 's/-latest//')
-          for f in $(find ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }}/library_exit/Release -type f \( -name "*.so" -o -name "*.dll" -o -name "*.dylib" \)); do
-            base=$(basename "$f")
-            ext="${base##*.}"
-            name="${base%.*}"
-            cp "$f" "artifacts/${name}_${OS}_${{ matrix.arch }}.${ext}"
-          done
-        shell: bash
+          $artifactsDir = "${{ github.workspace }}\artifacts"
+          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+          
+          $buildDirs = Get-ChildItem -Path "${{ github.workspace }}\build\.cxx\${{ matrix.os }}\${{ matrix.arch }}" -Recurse -Directory
+          
+          foreach ($dir in $buildDirs) {
+              Get-ChildItem -Path $dir.FullName -Include *.dll -File | ForEach-Object {
+                  Copy-Item $_.FullName -Destination $artifactsDir
+              }
+          }
 
       - name: Collect Native Libs (linux/macos)
         if: runner.os != 'Windows'
