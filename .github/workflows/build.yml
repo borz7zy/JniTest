@@ -108,12 +108,9 @@ jobs:
           $artifactsDir = "${{ github.workspace }}\artifacts"
           New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
           
-          $buildDirs = Get-ChildItem -Path "${{ github.workspace }}\build\.cxx\${{ matrix.os }}\${{ matrix.arch }}" -Recurse -Directory
-          
-          foreach ($dir in $buildDirs) {
-              Get-ChildItem -Path $dir.FullName -Include *.dll -File | ForEach-Object {
-                  Copy-Item $_.FullName -Destination $artifactsDir
-              }
+          Get-ChildItem -Path "${{ github.workspace }}\build\.cxx\${{ matrix.os }}\${{ matrix.arch }}" -Recurse -Include *.dll -File | ForEach-Object {
+            $dest = Join-Path $artifactsDir $_.Name
+            Copy-Item $_.FullName -Destination $dest -Force
           }
 
       - name: Collect Native Libs (linux/macos)
