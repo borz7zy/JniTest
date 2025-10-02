@@ -31,7 +31,9 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake build-essential
+          sudo apt-get install -y ninja-build cmake build-essential \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
@@ -42,25 +44,62 @@ jobs:
         if: runner.os == 'macos'
         run: brew install ninja cmake
 
-      - name: Configure CMake (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Configure CMake (Linux)
+        if: runner.os == 'Linux'
         run: |
-          cmake -S ${{ github.workspace }}/src/main/cpp \
-                -B ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} \
+          BUILD_DIR="${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }}"
+          mkdir -p "$BUILD_DIR"
+
+          TOOLCHAIN=""
+          SYSTEM_PROCESSOR=""
+
+          if [[ "${{ matrix.arch }}" == "x86" ]]; then
+            SYSTEM_PROCESSOR="i686"
+          elif [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+            SYSTEM_PROCESSOR="x86_64"
+          elif [[ "${{ matrix.arch }}" == "arm32" ]]; then
+            SYSTEM_PROCESSOR="arm"
+            TOOLCHAIN="-DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++"
+          elif [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            SYSTEM_PROCESSOR="aarch64"
+            TOOLCHAIN="-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+          fi
+
+          cmake -S "${{ github.workspace }}/src/main/cpp" \
+                -B "$BUILD_DIR" \
                 -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
-                ${{ matrix.os == 'macos-latest' && format('-DCMAKE_OSX_ARCHITECTURES={0}', matrix.arch == 'x86' && 'x86_64' || matrix.arch) || '' }}
+                -DCMAKE_SYSTEM_PROCESSOR=$SYSTEM_PROCESSOR \
+                $TOOLCHAIN
+
+      - name: Configure CMake (macOS)
+        if: runner.os == 'macos'
+        run: |
+          BUILD_DIR="${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }}"
+          mkdir -p "$BUILD_DIR"
+
+          ARCH_FLAG=$([[ "${{ matrix.arch }}" == "x86_64" ]] && echo "x86_64" || echo "${{ matrix.arch }}")
+
+          cmake -S "${{ github.workspace }}/src/main/cpp" \
+                -B "$BUILD_DIR" \
+                -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+                -DCMAKE_OSX_ARCHITECTURES=$ARCH_FLAG
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        run: |
-          cmake -S ${{ github.workspace }}\src\main\cpp `
-                -B ${{ github.workspace }}\build\.cxx\${{ matrix.os }}\${{ matrix.arch }} `
-                -DCMAKE_BUILD_TYPE=RelWithDebugInfo `
-                ${{ matrix.arch == 'x86' && '-A Win32' || matrix.arch == 'x86_64' && '-A x64' || '' }}
         shell: pwsh
+        run: |
+          $BUILD_DIR="${{ github.workspace }}\build\.cxx\${{ matrix.os }}\${{ matrix.arch }}"
+          New-Item -ItemType Directory -Force -Path $BUILD_DIR | Out-Null
+
+          $ARCH_FLAG = if (${{ matrix.arch }} -eq 'x86') { '-A Win32' } elseif (${{ matrix.arch }} -eq 'x86_64') { '-A x64' } else { '' }
+
+          cmake -S "${{ github.workspace }}\src\main\cpp" `
+                -B $BUILD_DIR `
+                -DCMAKE_BUILD_TYPE=RelWithDebugInfo `
+                $ARCH_FLAG
 
       - name: Build C++ Code
-        run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config=RelWithDebugInfo
+        run: cmake --build ${{ github.workspace }}/build/.cxx/${{ matrix.os }}/${{ matrix.arch }} --config RelWithDebugInfo
 
       - name: Collect Native Libs
         run: |
