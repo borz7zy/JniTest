@@ -104,9 +104,8 @@ jobs:
           path: build/libs/*.jar
 
       - name: Extract version
-        id: extract_version
         run: |
-          VERSION=$(grep -Po '[0-9\.]+(?= // CI_PROJECT_VERSION)' build.gradle.kts)
+          VERSION=$(sed -nE 's/^version = "([0-9\.]+)".*\/\/ CI_PROJECT_VERSION/\1/p' build.gradle.kts)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION = $VERSION"
 
