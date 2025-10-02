@@ -17,6 +17,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         arch: [x86, x86_64, arm32, arm64]
+        exclude:
+          - os: macos-latest
+            arch: x86
+          - os: macos-latest
+            arch: arm32
 
     steps:
       - name: Fetch sources
